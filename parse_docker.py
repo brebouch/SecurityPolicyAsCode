@@ -3,11 +3,16 @@ import json
 import requests
 import os
 
-secrets = json.loads(open('secret.json').read())
 
-fmc = secrets['FMC_URL']
-fmc_domain = secrets['FMC_DOMAIN']
-cdfmc_token = secrets['CDFMC_TOKEN']
+#secrets = json.loads(open('secret.json').read())
+
+#fmc = secrets['FMC_URL']
+#fmc_domain = secrets['FMC_DOMAIN']
+#cdfmc_token = secrets['CDFMC_TOKEN']
+
+fmc = os.environ.get('FMC_URL')
+fmc_domain = os.environ.get('FMC_DOMAIN')
+cdfmc_token = os.environ.get('CDFMC_TOKEN')
 
 ################################
 #
