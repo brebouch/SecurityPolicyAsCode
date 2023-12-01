@@ -1,7 +1,7 @@
 - hosts: localhost
   gather_facts: false
   vars:
-    docker_network: demo-kind-yelb_yelb-network
+    docker_network: yelb-network
   collections:
     - community.docker
   tasks:
