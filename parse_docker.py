@@ -47,9 +47,55 @@ def port_lookup(port_name):
     return False
 
 
-data = ''
+def create_policy_rule_string(ports_string):
+    return 'resource "fmc_access_rules" "access_rule" { \
+    acp                = data.fmc_access_policies.access_policy.id \
+    section            = "mandatory" \
+    name               = "yelb_app_permit_inbound" \
+    action             = "allow" \
+    enabled            = true \
+    send_events_to_fmc = true \
+    log_files          = false \
+    log_begin          = true \
+    log_end            = true \
+    source_networks { \
+      source_network { \
+        id   = data.fmc_network_objects.any.id \
+        type = "Network" \
+    } \
+  } \
+    destination_networks { \
+      destination_network { \
+        id   = data.fmc_network_objects.yelb_app_vpc.id \
+        type = "Network" \
+    } \
+  } \n ' + ports_string + '\n \
+  ips_policy   = data.fmc_ips_policies.ips_policy.id \
+  new_comments = ["inbound app traffic"] \
+}'
+
+
+data = '''
+data "fmc_access_policies" "acp" {
+    name = "FTD ACP"
+}
+
+data "fmc_ips_policies" "ips_policy" {
+    name = "Connectivity Over Security"
+}
+
+data "fmc_network_objects" "any" {
+    name = "any-ipv4"
+}
+
+data "fmc_network_objects" "yelb_app_vpc" {
+    name = "yelb_app_vpc"
+}
+'''
 resource = ''
 variables = ''
+
+ports = ''
 
 for d in docker:
     name = d['container']['Config']['Labels']['com.docker.compose.service']
@@ -71,6 +117,13 @@ for d in docker:
                     resource += 'resource "fmc_port_objects" "' + object_name \
                             + '" {\n    name = "' + object_name + '"\n    port = ' \
                             + port + '\n    protocol = "' + protocol.upper() + '"\n}\n\n'
+                    ports += 'destination_port { \n '\
+                             + '" {\n    name = "' + object_name + '"\n    port = ' \
+                    + port + '\n    protocol = "' + protocol.upper() + '"\n}\n\n'
+if ports:
+    ports = 'destination_ports { \n' + ports + '\n}'
+
+resource += create_policy_rule_string(ports)
 
 data_log = open('data.tf', 'w')
 data_log.write(data)
