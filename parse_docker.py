@@ -111,7 +111,7 @@ for d in docker:
                             + '" {\n    name = "' + object_name + '"\n    port = ' \
                             + port + '\n    protocol = "' + protocol.upper() + '"\n}\n\n'
                     ports += 'destination_port { \n '\
-                             + '" {\n    name = "' + object_name + '"\n    port = ' \
+                             + ' {\n    name = "' + object_name + '"\n    port = ' \
                     + port + '\n    protocol = "' + protocol.upper() + '"\n}\n\n'
 if ports:
     ports = 'destination_ports { \n' + ports + '\n}'
