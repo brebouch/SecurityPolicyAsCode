@@ -92,27 +92,27 @@ rule_ports = ''
 
 for d in docker:
     name = d['container']['Config']['Labels']['com.docker.compose.service']
-if 'Ports' in d['container']['NetworkSettings'].keys():
-    for k, v in d['container']['NetworkSettings']['Ports'].items():
-        if v is None:
-            continue
-        internal = k.split('/')
-        in_port = internal[0]
-        protocol = internal[1]
-        for export in v:
-            host = export['HostIp']
-            port = export['HostPort']
-            object_name = f'{name}_{port}_{protocol}'
-            checkup = port_lookup(object_name)
-            if checkup:
-                data += 'data "fmc_port_objects" "' + object_name + '" {\n    name = "' + object_name + '"\n}\n\n'
-            else:
-                resource += 'resource "fmc_port_objects" "' + object_name \
-                            + '" {\n    name = "' + object_name + '"\n    port = ' \
-                            + port + '\n    protocol = "' + protocol.upper() + '"\n}\n\n'
-                rule_ports += 'destination_port ' \
-                              + ' {\n    id = fmc_port_objects.' \
-                              + object_name + '.id\n type = fmc_port_objects.' + object_name + '.type \n}\n'
+    if 'Ports' in d['container']['NetworkSettings'].keys():
+        for k, v in d['container']['NetworkSettings']['Ports'].items():
+            if v is None:
+                continue
+            internal = k.split('/')
+            in_port = internal[0]
+            protocol = internal[1]
+            for export in v:
+                host = export['HostIp']
+                port = export['HostPort']
+                object_name = f'{name}_{port}_{protocol}'
+                checkup = port_lookup(object_name)
+                if checkup:
+                    data += 'data "fmc_port_objects" "' + object_name + '" {\n    name = "' + object_name + '"\n}\n\n'
+                else:
+                    resource += 'resource "fmc_port_objects" "' + object_name \
+                                + '" {\n    name = "' + object_name + '"\n    port = ' \
+                                + port + '\n    protocol = "' + protocol.upper() + '"\n}\n\n'
+                    rule_ports += 'destination_port ' \
+                                  + ' {\n    id = fmc_port_objects.' \
+                                  + object_name + '.id\n type = fmc_port_objects.' + object_name + '.type \n}\n'
 if rule_ports:
     rule_ports = 'destination_ports { \n' + rule_ports + '\n}\n'
 
