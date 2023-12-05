@@ -112,7 +112,7 @@ if 'Ports' in d['container']['NetworkSettings'].keys():
                             + port + '\n    protocol = "' + protocol.upper() + '"\n}\n\n'
                 rule_ports += 'destination_port ' \
                               + ' {\n    id = fmc_port_objects.' \
-                              + object_name + '.id\n type = fmc_port_objects.' + object_name + '.type}\n'
+                              + object_name + '.id\n type = fmc_port_objects.' + object_name + '.type \n}\n'
 if rule_ports:
     rule_ports = 'destination_ports { \n' + rule_ports + '\n}\n'
 
