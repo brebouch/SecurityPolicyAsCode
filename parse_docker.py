@@ -17,11 +17,9 @@ tf_var = 'cdo_token = "' + cdfmc_token + '"\n\n'
 tf_var += 'cdFMC = "' + fmc + '"\n\n'
 tf_var += 'cdfmc_domain_uuid = "' + fmc_domain + '"\n\n'
 
-
 variable_log = open('terraform.tfvars', 'w')
 variable_log.write(tf_var)
 variable_log.close()
-
 
 docker = json.loads(open('ansible_data.json').read())
 ports = []
@@ -41,36 +39,38 @@ def port_lookup(port_name):
 
 
 def create_policy_rule_string(ports_string):
-    return 'resource "fmc_access_rules" "access_rule" { \
-    acp                = data.fmc_access_policies.access_policy.id \
-    section            = "mandatory" \
-    name               = "yelb_app_permit_inbound" \
-    action             = "allow" \
-    enabled            = true \
-    send_events_to_fmc = true \
-    log_files          = false \
-    log_begin          = true \
-    log_end            = true \
-    source_networks { \
-      source_network { \
-        id   = data.fmc_network_objects.any.id \
-        type = "Network" \
-    } \
-  } \
-    destination_networks { \
-      destination_network { \
-        id   = data.fmc_network_objects.yelb_app_vpc.id \
-        type = "Network" \
-    } \
-  } \n ' + ports_string + '\n \
-  ips_policy   = data.fmc_ips_policies.ips_policy.id \
-  new_comments = ["inbound app traffic"] \
-}'
+    rule = 'resource "fmc_access_rules" "access_rule" { \n \
+        acp                = data.fmc_access_policies.acp.id \n \
+        section            = "mandatory" \n \
+        name               = "yelb_app_permit_inbound" \n \
+        action             = "allow" \n \
+        enabled            = true \n \
+        send_events_to_fmc = true \n \
+        log_files          = false \n \
+        log_begin          = true \n \
+        log_end            = true \n \
+        source_networks { \n \
+          source_network { \n \
+            id   = data.fmc_network_objects.any.id \n \
+            type = "Network" \n \
+        } \n \
+      } \n \
+        destination_networks { \n \
+          destination_network { \n \
+            id   = data.fmc_network_objects.yelb_app_vpc.id \n \
+            type = "Network" \n \
+        } \n \
+      } \n '
+    rule += ports_string
+    rule += 'ips_policy = data.fmc_ips_policies.ips_policy.id \n \
+    new_comments = ["inbound app traffic"] \n \
+    }'
+    return rule
 
 
 data = '''
 data "fmc_access_policies" "acp" {
-    name = "FTD ACP"
+    name = "Policy as Code"
 }
 
 data "fmc_ips_policies" "ips_policy" {
@@ -88,35 +88,35 @@ data "fmc_network_objects" "yelb_app_vpc" {
 resource = ''
 variables = ''
 
-ports = ''
+rule_ports = ''
 
 for d in docker:
     name = d['container']['Config']['Labels']['com.docker.compose.service']
-    if 'Ports' in d['container']['NetworkSettings'].keys():
-        for k, v in d['container']['NetworkSettings']['Ports'].items():
-            if v is None:
-                continue
-            internal = k.split('/')
-            in_port = internal[0]
-            protocol = internal[1]
-            for export in v:
-                host = export['HostIp']
-                port = export['HostPort']
-                object_name = f'{name}_{port}_{protocol}'
-                checkup = port_lookup(object_name)
-                if checkup:
-                    data += 'data "fmc_port_objects" "' + object_name + '" {\n    name = "' + object_name + '"\n}\n\n'
-                else:
-                    resource += 'resource "fmc_port_objects" "' + object_name \
+if 'Ports' in d['container']['NetworkSettings'].keys():
+    for k, v in d['container']['NetworkSettings']['Ports'].items():
+        if v is None:
+            continue
+        internal = k.split('/')
+        in_port = internal[0]
+        protocol = internal[1]
+        for export in v:
+            host = export['HostIp']
+            port = export['HostPort']
+            object_name = f'{name}_{port}_{protocol}'
+            checkup = port_lookup(object_name)
+            if checkup:
+                data += 'data "fmc_port_objects" "' + object_name + '" {\n    name = "' + object_name + '"\n}\n\n'
+            else:
+                resource += 'resource "fmc_port_objects" "' + object_name \
                             + '" {\n    name = "' + object_name + '"\n    port = ' \
                             + port + '\n    protocol = "' + protocol.upper() + '"\n}\n\n'
-                    ports += 'destination_port { \n '\
-                             + ' {\n    name = "' + object_name + '"\n    port = ' \
-                    + port + '\n    protocol = "' + protocol.upper() + '"\n}\n\n'
-if ports:
-    ports = 'destination_ports { \n' + ports + '\n}'
+                rule_ports += 'destination_port ' \
+                              + ' {\n    id = fmc_port_objects.' \
+                              + object_name + '.id\n type = fmc_port_objects.' + object_name + '.type}\n'
+if rule_ports:
+    rule_ports = 'destination_ports { \n' + rule_ports + '\n}\n'
 
-resource += create_policy_rule_string(ports)
+resource += create_policy_rule_string(rule_ports)
 
 data_log = open('data.tf', 'w')
 data_log.write(data)
@@ -124,4 +124,3 @@ data_log.close()
 resource_log = open('resource.tf', 'w')
 resource_log.write(resource)
 resource_log.close()
-
