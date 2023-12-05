@@ -44,7 +44,7 @@ def create_policy_rule_string(ports_string):
     rule = 'resource "fmc_access_rules" "access_rule" { \n \
         acp                = data.fmc_access_policies.acp.id \n \
         section            = "mandatory" \n \
-        name               = "yelb_app_permit_inbound_' + now.strftime('%Y-%m-%d-%H-%M-%S') + '" \n \
+        name               = "yelb_app_permit_inbound_' + now.strftime('%Y-%m-%d_%H:%M:%S') + '" \n \
         action             = "allow" \n \
         enabled            = true \n \
         send_events_to_fmc = true \n \
