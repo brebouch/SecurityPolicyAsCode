@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import requests
+import datetime
 import os
 
 fmc = os.environ.get('FMC_URL')
@@ -39,10 +40,11 @@ def port_lookup(port_name):
 
 
 def create_policy_rule_string(ports_string):
+    now = datetime.datetime.utcnow()
     rule = 'resource "fmc_access_rules" "access_rule" { \n \
         acp                = data.fmc_access_policies.acp.id \n \
         section            = "mandatory" \n \
-        name               = "yelb_app_permit_inbound" \n \
+        name               = "yelb_app_permit_inbound" ' + now.strftime('%Y-%m-%d-%H-%M-$S') + ' \n \
         action             = "allow" \n \
         enabled            = true \n \
         send_events_to_fmc = true \n \
