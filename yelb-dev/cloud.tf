@@ -3,7 +3,7 @@ terraform {
     organization = "Global-Security-Automation-Team"
 
     workspaces {
-      name = "yelb"
+      name = "yelb-dev"
     }
   }
 }
