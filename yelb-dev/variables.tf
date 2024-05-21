@@ -32,7 +32,6 @@ variable "ftd_device_name" {
 variable "port_object_name" {
   description = "The name of the port object to be referenced by the data source"
   type        = string
-  default     = "yelb-app-prod"
 }
 
 variable "port_object_port" {
