@@ -19,7 +19,34 @@ variable "cdFMC" {
   type        = string
   default     = ""
 }
+
 variable "cdfmc_domain_uuid" {
   type        = string
   default     = "e276abec-e0f2-11e3-8169-6d9ed49b625f"
+}
+
+variable "ftd_device_name" {
+  type        = string
+}
+
+variable "prod_port_object_name" {
+  description = "The name of the port object to be referenced by the data source"
+  type        = string
+  default     = "yelb-app-prod"
+}
+
+variable "prod_port_object_port" {
+  description = "The network port used by the application"
+  type        = number
+}
+
+variable "dev_port_object_name" {
+  description = "The name of the port object to be referenced by the data source"
+  type        = string
+  default = "yelb-app-dev"
+}
+
+variable "dev_port_object_port" {
+  description = "The network port used by the application"
+  type        = number
 }
