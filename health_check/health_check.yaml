@@ -134,12 +134,12 @@
       set_fact:
         status: "Failed"
         result: "{{ result }}Kubernetes service lookup in namespace {{ NAMESPACE }}: Failed\nNodePort {{ NODE_PORT }} not in service NodePorts: {{ node_ports }}\n"
-      when: NODE_PORT not in node_ports
+      when: NODE_PORT | int not in node_ports
 
     - name: Set Kube Service Check Successful
       set_fact:
         result: "{{ result }}Kubernetes service lookup in namespace {{ NAMESPACE }}: Successful\n"
-      when: output.kube_svc.items != [] and NODE_PORT in node_ports
+      when: output.kube_svc.items != [] and NODE_PORT | int in node_ports
 
     - name: Set Status Failed
       set_fact:
