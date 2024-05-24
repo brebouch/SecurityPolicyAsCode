@@ -1,0 +1,200 @@
+---
+- name: Check App is Up
+  hosts: localhost
+  vars_files:
+    - vars.yaml
+  tasks:
+    - name: Validate App is Up
+      ansible.builtin.uri:
+        url: "http://{{ APP_SOCKET }}"
+        method: GET
+        status_code: 200
+        timeout: 20
+      ignore_errors: True
+      register: app_up
+
+    - name: Trigger Panoptica Scan
+      ansible.builtin.uri:
+        url: "https://api.us1.console.panoptica.app/api/cspm/settings/k8s_cluster_scan/{{ PANOPTICA_CLUSTER_ID }}"
+        headers:
+          Authorization: "{{ PANOPTICA_TOKEN }}"
+          Accept: "application/json"
+          Content-Type: "application/json"
+        method: POST
+        status_code: [200, 400]
+        return_content: true
+        timeout: 20
+        validate_certs: false
+      ignore_errors: True
+      register: panoptica_scan
+
+    - name: Set Panoptica Output
+      set_fact:
+        panoptica_scan: "{{ panoptica_scan.content }}"
+
+- name: Kubernetes Health Check Local Checks
+  connection: local
+  hosts: localhost
+  vars_files:
+    - vars.yaml
+  tasks:
+
+    - name: Get Kubernetes Nodes
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - nodes
+          - -o
+          - json
+      register: kube_nodes
+
+    - name: Get Kubernetes Services for Namespace
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - svc
+          - -n
+          - "{{ NAMESPACE }}"
+          - -o
+          - json
+      register: kube_services
+
+    - name: Get Kubernetes Pods for Namespace
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - pods
+          - -n
+          - "{{ NAMESPACE }}"
+          - -o
+          - json
+      register: kube_pods
+
+    - name: Get Cilium Status JSON
+      ansible.builtin.command:
+        argv:
+          - cilium
+          - status
+          - -o
+          - json
+      register: cilium_status
+
+    - name: Get Hubble Flows Table For Namespace
+      ansible.builtin.command:
+        argv:
+          - hubble
+          - observe
+          - -n
+          - "{{ NAMESPACE }}"
+          - -o
+          - table
+      register: hubble_table
+
+    - name: Create Output JSON
+      set_fact:
+        output: '{ "kube_nodes": {{ kube_nodes.stdout }}, "kube_svc": {{ kube_services.stdout }}, "kube_pods": {{ kube_pods.stdout }}, "cilium_status": {{ cilium_status.stdout }}, "hubble_flows": {{ hubble_table }}}'
+
+    - name: Write Output
+      copy:
+        content: "{{ output }}"
+        dest: "output.json"
+
+    - name: Set App Check Successful
+      set_fact:
+        result: "{{ result }}<h4>HTTP curl to {{ APP_SOCKET }}: Successful</h4>"
+      when: app_up.status == 200
+
+    - name: Set Status Failed
+      set_fact:
+        status: "Failed"
+        result: "{{ result }}<h4>HTTP curl to {{ APP_SOCKET }}: Failed</h4>"
+      when: app_up.status != 200
+
+    - name: Set Kube Node Check Successful
+      set_fact:
+        result: "{{ result }}<h4>Kubernetes node check: Successful</h4>"
+      when: output.kube_nodes.items != []
+
+    - name: Set Status Failed
+      set_fact:
+        status: "Failed"
+        result: "{{ result }}<h4>Kubernetes node check: Failed</h4><p>Kubernetes has no nodes available</p>"
+      when: output.kube_nodes.items == []
+
+    - name: Get Node Port
+      set_fact:
+        node_ports: "{{ output.kube_svc | json_query(query)|default([])}}"
+      vars:
+        query: "items[?spec.type == 'NodePort'].spec.ports[*].nodePort[]"
+
+    - name: Set Status Failed
+      set_fact:
+        status: "Failed"
+        result: "{{ result }}<h4>Kubernetes service lookup in namespace {{ NAMESPACE }}: Failed</h4><p>NodePort {{ NODE_PORT }} not in service NodePorts: {{ node_ports }}</p>"
+      when: NODE_PORT not in node_ports
+
+    - name: Set Kube Service Check Successful
+      set_fact:
+        result: "{{ result }}<h4>Kubernetes service lookup in namespace {{ NAMESPACE }}: Successful</h4>"
+      when: output.kube_svc.items != [] and NODE_PORT in node_ports
+
+    - name: Set Status Failed
+      set_fact:
+        status: "Failed"
+        result: "{{ result }}<h4>Kubernetes service lookup in namespace {{ NAMESPACE }}: Failed</h4>"
+      when: output.kube_svc.items == []
+
+    - name: Set Status Failed
+      set_fact:
+        status: "Failed"
+        result: "{{ result }}<h4>Kubernetes Pod lookup in namespace {{ NAMESPACE }}: Failed</h4><p>No pods in namespace: {{ NAMESPACE }}</p>"
+      when: output.kube_pods.items == []
+
+    - name: Get Non-Running Pods
+      set_fact:
+        bad_pods: "{{ output.kube_pods | json_query(query)|default([])}}"
+      vars:
+        query: "items[?status.phase != 'Running'].metadata.name"
+
+    - name: Set Status Failed
+      set_fact:
+        status: "Failed"
+        result: "{{ result }}<h4>Kubernetes Pod lookup in namespace {{ NAMESPACE }}: Failed</h4><p>Pods not currently in running state: {{ bad_pods }}</p>"
+      when: bad_pods
+
+    - name: Set Kube Pod Check Successful
+      set_fact:
+        result: "{{ result }}<h4>Kubernetes Pod lookup in namespace {{ NAMESPACE }}: Successful</h4>"
+      when: bad_pods == []
+
+    - name: Get Cilium Images
+      set_fact:
+        cilium_images: "{{ output.cilium_status.image_count.keys()|list}}"
+
+    - name: Set Flow Header
+      set_fact:
+        result: "{{ result }}<h3>Cilium Hubble Seen Flows:</h3>"
+
+    - name: Get Flow Details
+      set_fact:
+        result: "{{ result }}<pre>{{ output.hubble_flows.stdout | replace('\\n', '\n')}}</pre>"
+
+    - name: Set Panoptica Scan Header
+      set_fact:
+        result: "{{ result }}<h3>Panoptica K8S Scan:</h3>"
+
+    - name: Get Panoptica Scan Details
+      set_fact:
+        result: "{{ result }}<pre>{{ panoptica_scan.response }}</pre>"
+
+    - name: Update Result with Status
+      set_fact:
+        result: "<html><body><h2>Deployment Validation Status: \n{{status}}</h2><h3>Environment: {{ ENVIRONMENT }}</h3>{{ result }}</html></body>"
+
+    - name: Write result
+      copy:
+        content: "{{ result }}"
+        dest: "result.html"
