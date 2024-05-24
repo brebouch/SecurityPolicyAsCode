@@ -124,6 +124,10 @@
         result: "{{ result }}Kubernetes node check: Failed\nKubernetes has no nodes available\n"
       when: output.kube_nodes.items == []
 
+    - name: Set Node Port Variable
+      set_fact:
+        np: "{{ NODE_PORT | int }}"
+
     - name: Get Node Port
       set_fact:
         node_ports: "{{ output.kube_svc | json_query(query)|default([])}}"
@@ -134,12 +138,12 @@
       set_fact:
         status: "Failed"
         result: "{{ result }}Kubernetes service lookup in namespace {{ NAMESPACE }}: Failed\nNodePort {{ NODE_PORT }} not in service NodePorts: {{ node_ports }}\n"
-      when: NODE_PORT | int not in node_ports
+      when: np not in node_ports
 
     - name: Set Kube Service Check Successful
       set_fact:
         result: "{{ result }}Kubernetes service lookup in namespace {{ NAMESPACE }}: Successful\n"
-      when: output.kube_svc.items != [] and NODE_PORT | int in node_ports
+      when: output.kube_svc.items != [] and np in node_ports
 
     - name: Set Status Failed
       set_fact:
