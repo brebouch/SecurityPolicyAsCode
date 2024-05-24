@@ -2,7 +2,7 @@
 - name: Check App is Up
   hosts: localhost
   vars_files:
-    - vars.yaml
+    - updated_vars.yaml
   tasks:
     - name: Validate App is Up
       ansible.builtin.uri:
