@@ -126,7 +126,7 @@
 
     - name: Set Node Port Variable
       set_fact:
-        np: "{{ NODE_PORT | int }}"
+        np: "{{ NODE_PORT | string }}"
 
     - name: Get Node Port
       set_fact:
