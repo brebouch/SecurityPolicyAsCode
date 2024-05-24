@@ -104,24 +104,24 @@
 
     - name: Set App Check Successful
       set_fact:
-        result: "{{ result }}<h4>HTTP curl to {{ APP_SOCKET }}: Successful</h4>"
+        result: "{{ result }}HTTP curl to {{ APP_SOCKET }}: Successful\n"
       when: app_up.status == 200
 
     - name: Set Status Failed
       set_fact:
         status: "Failed"
-        result: "{{ result }}<h4>HTTP curl to {{ APP_SOCKET }}: Failed</h4>"
+        result: "{{ result }}HTTP curl to {{ APP_SOCKET }}: Failed\n"
       when: app_up.status != 200
 
     - name: Set Kube Node Check Successful
       set_fact:
-        result: "{{ result }}<h4>Kubernetes node check: Successful</h4>"
+        result: "{{ result }}Kubernetes node check: Successful\n"
       when: output.kube_nodes.items != []
 
     - name: Set Status Failed
       set_fact:
         status: "Failed"
-        result: "{{ result }}<h4>Kubernetes node check: Failed</h4><p>Kubernetes has no nodes available</p>"
+        result: "{{ result }}Kubernetes node check: Failed\nKubernetes has no nodes available\n"
       when: output.kube_nodes.items == []
 
     - name: Get Node Port
@@ -133,24 +133,24 @@
     - name: Set Status Failed
       set_fact:
         status: "Failed"
-        result: "{{ result }}<h4>Kubernetes service lookup in namespace {{ NAMESPACE }}: Failed</h4><p>NodePort {{ NODE_PORT }} not in service NodePorts: {{ node_ports }}</p>"
+        result: "{{ result }}Kubernetes service lookup in namespace {{ NAMESPACE }}: Failed\nNodePort {{ NODE_PORT }} not in service NodePorts: {{ node_ports }}\n"
       when: NODE_PORT not in node_ports
 
     - name: Set Kube Service Check Successful
       set_fact:
-        result: "{{ result }}<h4>Kubernetes service lookup in namespace {{ NAMESPACE }}: Successful</h4>"
+        result: "{{ result }}Kubernetes service lookup in namespace {{ NAMESPACE }}: Successful\n"
       when: output.kube_svc.items != [] and NODE_PORT in node_ports
 
     - name: Set Status Failed
       set_fact:
         status: "Failed"
-        result: "{{ result }}<h4>Kubernetes service lookup in namespace {{ NAMESPACE }}: Failed</h4>"
+        result: "{{ result }}Kubernetes service lookup in namespace {{ NAMESPACE }}: Failed\n"
       when: output.kube_svc.items == []
 
     - name: Set Status Failed
       set_fact:
         status: "Failed"
-        result: "{{ result }}<h4>Kubernetes Pod lookup in namespace {{ NAMESPACE }}: Failed</h4><p>No pods in namespace: {{ NAMESPACE }}</p>"
+        result: "{{ result }}Kubernetes Pod lookup in namespace {{ NAMESPACE }}: Failed\nNo pods in namespace: {{ NAMESPACE }}\n"
       when: output.kube_pods.items == []
 
     - name: Get Non-Running Pods
@@ -162,12 +162,12 @@
     - name: Set Status Failed
       set_fact:
         status: "Failed"
-        result: "{{ result }}<h4>Kubernetes Pod lookup in namespace {{ NAMESPACE }}: Failed</h4><p>Pods not currently in running state: {{ bad_pods }}</p>"
+        result: "{{ result }}Kubernetes Pod lookup in namespace {{ NAMESPACE }}: Failed\nPods not currently in running state: {{ bad_pods }}\n"
       when: bad_pods
 
     - name: Set Kube Pod Check Successful
       set_fact:
-        result: "{{ result }}<h4>Kubernetes Pod lookup in namespace {{ NAMESPACE }}: Successful</h4>"
+        result: "{{ result }}\nKubernetes Pod lookup in namespace {{ NAMESPACE }}: Successful\n"
       when: bad_pods == []
 
     - name: Get Cilium Images
@@ -176,25 +176,25 @@
 
     - name: Set Flow Header
       set_fact:
-        result: "{{ result }}<h3>Cilium Hubble Seen Flows:</h3>"
+        result: "{{ result }}\nCilium Hubble Seen Flows:\n"
 
     - name: Get Flow Details
       set_fact:
-        result: "{{ result }}<pre>{{ output.hubble_flows.stdout | replace('\\n', '\n')}}</pre>"
+        result: "{{ result }}\n{{ output.hubble_flows.stdout | replace('\\n', '\n')}}\n"
 
     - name: Set Panoptica Scan Header
       set_fact:
-        result: "{{ result }}<h3>Panoptica K8S Scan:</h3>"
+        result: "{{ result }}\nPanoptica K8S Scan:\n"
 
     - name: Get Panoptica Scan Details
       set_fact:
-        result: "{{ result }}<pre>{{ panoptica_scan.response }}</pre>"
+        result: "{{ result }}{{ panoptica_scan.response }}\n"
 
     - name: Update Result with Status
       set_fact:
-        result: "<html><body><h2>Deployment Validation Status: \n{{status}}</h2><h3>Environment: {{ ENVIRONMENT }}</h3>{{ result }}</html></body>"
+        result: "Deployment Validation Status: \n{{status}}\nEnvironment: {{ ENVIRONMENT }}\n{{ result }}"
 
     - name: Write result
       copy:
         content: "{{ result }}"
-        dest: "result.html"
+        dest: "result.txt"
