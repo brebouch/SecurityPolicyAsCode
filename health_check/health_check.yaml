@@ -164,7 +164,7 @@
 
     - name: Set Kube Pod Check Successful
       set_fact:
-        result: "{{ result }}\nKubernetes Pod lookup in namespace {{ NAMESPACE }}: Successful\n"
+        result: "{{ result }}Kubernetes Pod lookup in namespace {{ NAMESPACE }}: Successful\n"
       when: bad_pods == []
 
     - name: Get Cilium Images
@@ -189,7 +189,7 @@
 
     - name: Update Result with Status
       set_fact:
-        result: "Deployment Validation Status: \n{{status}}\nEnvironment: {{ ENVIRONMENT }}\n{{ result }}"
+        result: "Deployment Validation Status: {{status}}\nEnvironment: {{ ENVIRONMENT }}\n{{ result }}"
 
     - name: Write result
       copy:
