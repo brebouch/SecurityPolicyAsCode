@@ -32,13 +32,6 @@
       set_fact:
         panoptica_scan: "{{ panoptica_scan.content }}"
 
-- name: Kubernetes Health Check Local Checks
-  connection: local
-  hosts: localhost
-  vars_files:
-    - vars.yaml
-  tasks:
-
     - name: Get Kubernetes Nodes
       ansible.builtin.command:
         argv:
@@ -126,7 +119,7 @@
 
     - name: Set Node Port Variable
       set_fact:
-        np: "{{ NODE_PORT | string }}"
+        np: "{{ NODE_PORT }}"
 
     - name: Get Node Port
       set_fact:
