@@ -12,6 +12,9 @@
         timeout: 20
       ignore_errors: True
       register: app_up
+      until: _result.status == 200
+      retries: 30
+      delay: 10
 
     - name: Trigger Panoptica Scan
       ansible.builtin.uri:
