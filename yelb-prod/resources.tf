@@ -27,7 +27,7 @@ resource "fmc_access_rules" "access_rule" {
   depends_on = [data.fmc_devices.ftd]
   acp                = data.fmc_access_policies.access_policy.id
   section            = "mandatory"
-  name               = "Access to App Server"
+  name               = "${var.port_object_name} HTTP Access to Kube Egress"
   action             = "allow"
   enabled            = true
   send_events_to_fmc = true
