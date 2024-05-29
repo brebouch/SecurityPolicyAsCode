@@ -7,22 +7,6 @@ resource "fmc_port_objects" "port_object" {
 }
 
 
-# Kube Egress Host Objects
-resource "fmc_host_objects" "kube_egress_ip" {
-  name        = "kube_egress_ip"
-  value       = var.kube_egress_ip
-  description = "Kubernetes Egress IP"
-}
-
-
-
-# Host Objects
-resource "fmc_host_objects" "ftd_nat_ip" {
-  name        = "ftd_nat_ip"
-  value       = var.ftd_nat_ip
-  description = "FTD Inside NAT IP"
-}
-
 resource "fmc_access_rules" "access_rule" {
   depends_on = [data.fmc_devices.ftd]
   acp                = data.fmc_access_policies.access_policy.id
@@ -36,13 +20,13 @@ resource "fmc_access_rules" "access_rule" {
   log_end            = true
   source_networks {
     source_network {
-      id   = fmc_host_objects.ftd_nat_ip.id
+      id   = data.fmc_host_objects.ftd_nat_ip.id
       type = "Host"
     }
   }
   destination_networks {
     destination_network {
-      id   = fmc_host_objects.kube_egress_ip.id
+      id   = data.fmc_host_objects.kube_egress_ip.id
       type = "Host"
     }
   }
