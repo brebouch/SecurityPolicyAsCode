@@ -8,10 +8,11 @@
       ansible.builtin.uri:
         url: "http://{{ APP_SOCKET }}"
         method: GET
-        status_code: 200
-        timeout: 20
       ignore_errors: True
       register: app_up
+      until: app_up.status == 200
+      retries: 30
+      delay: 10
 
     - name: Trigger Panoptica Scan
       ansible.builtin.uri:
