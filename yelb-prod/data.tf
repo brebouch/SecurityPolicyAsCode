@@ -11,5 +11,5 @@ data "fmc_ips_policies" "ips_base_policy" {
 
 # Access Policy
 data "fmc_access_policies" "access_policy" {
-    name: var.access_policy_name
+    name = var.access_policy_name
 }
