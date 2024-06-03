@@ -1,0 +1,198 @@
+---
+- name: Check App is Up
+  hosts: localhost
+  vars_files:
+    - updated_vars.yaml
+  tasks:
+    - name: Validate App is Up
+      ansible.builtin.uri:
+        url: "http://{{ APP_SOCKET }}"
+        method: GET
+      ignore_errors: True
+      register: app_up
+      until: app_up.status == 200
+      retries: 30
+      delay: 10
+
+    - name: Trigger Panoptica Scan
+      ansible.builtin.uri:
+        url: "https://api.us1.console.panoptica.app/api/cspm/settings/k8s_cluster_scan/{{ PANOPTICA_CLUSTER_ID }}"
+        headers:
+          Authorization: "{{ PANOPTICA_TOKEN }}"
+          Accept: "application/json"
+          Content-Type: "application/json"
+        method: POST
+        status_code: [200, 400]
+        return_content: true
+        timeout: 20
+        validate_certs: false
+      ignore_errors: True
+      register: panoptica_scan
+
+    - name: Set Panoptica Output
+      set_fact:
+        panoptica_scan: "{{ panoptica_scan.content }}"
+
+    - name: Get Kubernetes Nodes
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - nodes
+          - -o
+          - json
+      register: kube_nodes
+
+    - name: Get Kubernetes Services for Namespace
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - svc
+          - -n
+          - "{{ NAMESPACE }}"
+          - -o
+          - json
+      register: kube_services
+
+    - name: Get Kubernetes Pods for Namespace
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - pods
+          - -n
+          - "{{ NAMESPACE }}"
+          - -o
+          - json
+      register: kube_pods
+
+    - name: Get Cilium Status JSON
+      ansible.builtin.command:
+        argv:
+          - cilium
+          - status
+          - -o
+          - json
+      register: cilium_status
+
+    - name: Get Hubble Flows Table For Namespace
+      ansible.builtin.command:
+        argv:
+          - hubble
+          - observe
+          - -n
+          - "{{ NAMESPACE }}"
+          - -o
+          - table
+      register: hubble_table
+
+    - name: Create Output JSON
+      set_fact:
+        output: '{ "kube_nodes": {{ kube_nodes.stdout }}, "kube_svc": {{ kube_services.stdout }}, "kube_pods": {{ kube_pods.stdout }}, "cilium_status": {{ cilium_status.stdout }}, "hubble_flows": {{ hubble_table }}}'
+
+    - name: Write Output
+      copy:
+        content: "{{ output }}"
+        dest: "output.json"
+
+    - name: Set App Check Successful
+      set_fact:
+        result: "{{ result }}HTTP curl to {{ APP_SOCKET }}: Successful\n"
+      when: app_up.status == 200
+
+    - name: Set Status Failed
+      set_fact:
+        status: "Failed"
+        result: "{{ result }}HTTP curl to {{ APP_SOCKET }}: Failed\n"
+      when: app_up.status != 200
+
+    - name: Set Kube Node Check Successful
+      set_fact:
+        result: "{{ result }}Kubernetes node check: Successful\n"
+      when: output.kube_nodes.items != []
+
+    - name: Set Status Failed
+      set_fact:
+        status: "Failed"
+        result: "{{ result }}Kubernetes node check: Failed\nKubernetes has no nodes available\n"
+      when: output.kube_nodes.items == []
+
+    - name: Set Node Port Variable
+      set_fact:
+        np: "{{ NODE_PORT }}"
+
+    - name: Get Node Port
+      set_fact:
+        node_ports: "{{ output.kube_svc | json_query(query)|default([])}}"
+      vars:
+        query: "items[?spec.type == 'NodePort'].spec.ports[*].nodePort[]"
+
+    - name: Set Status Failed
+      set_fact:
+        status: "Failed"
+        result: "{{ result }}Kubernetes service lookup in namespace {{ NAMESPACE }}: Failed\nNodePort {{ NODE_PORT }} not in service NodePorts: {{ node_ports }}\n"
+      when: np not in node_ports
+
+    - name: Set Kube Service Check Successful
+      set_fact:
+        result: "{{ result }}Kubernetes service lookup in namespace {{ NAMESPACE }}: Successful\n"
+      when: output.kube_svc.items != [] and np in node_ports
+
+    - name: Set Status Failed
+      set_fact:
+        status: "Failed"
+        result: "{{ result }}Kubernetes service lookup in namespace {{ NAMESPACE }}: Failed\n"
+      when: output.kube_svc.items == []
+
+    - name: Set Status Failed
+      set_fact:
+        status: "Failed"
+        result: "{{ result }}Kubernetes Pod lookup in namespace {{ NAMESPACE }}: Failed\nNo pods in namespace: {{ NAMESPACE }}\n"
+      when: output.kube_pods.items == []
+
+    - name: Get Non-Running Pods
+      set_fact:
+        bad_pods: "{{ output.kube_pods | json_query(query)|default([])}}"
+      vars:
+        query: "items[?status.phase != 'Running'].metadata.name"
+
+    - name: Set Status Failed
+      set_fact:
+        status: "Failed"
+        result: "{{ result }}Kubernetes Pod lookup in namespace {{ NAMESPACE }}: Failed\nPods not currently in running state: {{ bad_pods }}\n"
+      when: bad_pods
+
+    - name: Set Kube Pod Check Successful
+      set_fact:
+        result: "{{ result }}Kubernetes Pod lookup in namespace {{ NAMESPACE }}: Successful\n"
+      when: bad_pods == []
+
+    - name: Get Cilium Images
+      set_fact:
+        cilium_images: "{{ output.cilium_status.image_count.keys()|list}}"
+
+    - name: Set Flow Header
+      set_fact:
+        result: "{{ result }}\nCilium Hubble Seen Flows:\n"
+
+    - name: Get Flow Details
+      set_fact:
+        result: "{{ result }}\n{{ output.hubble_flows.stdout | replace('\\n', '\n')}}\n"
+
+    - name: Set Panoptica Scan Header
+      set_fact:
+        result: "{{ result }}\nPanoptica K8S Scan:\n"
+
+    - name: Get Panoptica Scan Details
+      set_fact:
+        result: "{{ result }}{{ panoptica_scan.response }}\n"
+
+    - name: Update Result with Status
+      set_fact:
+        result: "Deployment Validation Status: {{status}}\nEnvironment: {{ ENVIRONMENT }}\n{{ result }}"
+
+    - name: Write result
+      copy:
+        content: "{{ result }}"
+        dest: "result.txt"
